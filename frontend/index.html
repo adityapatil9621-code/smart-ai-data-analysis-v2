@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ether Engine - Obsidian Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="mainSidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <i class="fa-solid fa-microchip icon-accent"></i>
+          <span class="logo-text">ETHER ENGINE</span>
+          <span class="logo-version">V2.0.4-ACTIVE</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="active" data-target="dashboard"><i class="fa-solid fa-grip"></i> Dashboard</li>
+          <li data-target="upload"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</li>
+          <li data-target="analysis"><i class="fa-solid fa-chart-line"></i> Analysis</li>
+          <li data-target="forecast"><i class="fa-solid fa-chart-pie"></i> Forecast</li>
+          <li data-target="insights"><i class="fa-solid fa-lightbulb"></i> Insights</li>
+          <li data-target="chat"><i class="fa-solid fa-message"></i> Chat</li>
+          <li data-target="settings"><i class="fa-solid fa-gear"></i> Settings</li>
+        </ul>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-primary btn-full">NEW ANALYSIS</button>
+        <ul class="footer-nav">
+          <li><i class="fa-regular fa-circle-question"></i> Support</li>
+          <li><i class="fa-solid fa-terminal"></i> Logs</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="top-nav">
+        <div class="nav-breadcrumbs">
+          <span class="brand">OBSIDIAN</span>
+          <span class="separator"></span>
+          <span class="active-tab" id="headerContext">NETWORK</span>
+          <span class="tab">INFRASTRUCTURE</span>
+        </div>
+        <div class="nav-actions">
+          <div class="search-bar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" placeholder="QUERY ENGINE...">
+          </div>
+          <i class="fa-regular fa-bell icon-action"></i>
+          <i class="fa-solid fa-bolt icon-action"></i>
+          <div class="avatar">
+             <i class="fa-solid fa-user"></i>
+          </div>
+        </div>
+      </header>
+
+      <!-- Viewport area -->
+      <div class="viewport-scrollable">
+        
+        <!-- ======================= -->
+        <!-- DASHBOARD TAB           -->
+        <!-- ======================= -->
+        <div id="tab-dashboard" class="tab-pane active">
+          <div class="tab-layout">
+            <!-- Top Metrics Cards -->
+            <div class="metrics-grid">
+               <div class="metric-card">
+                 <div class="metric-title">TOTAL ROWS</div>
+                 <div class="metric-value" id="valTotalRows">1.28M <span class="badge positive">+12.4%</span></div>
+                 <div class="metric-bar"><div class="bar-fill" style="width: 70%"></div></div>
+               </div>
+               <div class="metric-card">
+                 <div class="metric-title">DATA QUALITY</div>
+                 <div class="metric-value">99.2% <span class="badge teal">OPTIMAL</span></div>
+                 <div class="metric-bar"><div class="bar-fill teal" style="width: 90%"></div></div>
+               </div>
+               <div class="metric-card">
+                 <div class="metric-title">MODEL VERSION</div>
+                 <div class="metric-value">v4.2-α <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 16px; margin-left: 8px;"></i></div>
+                 <div class="metric-subtext">LATEST NEURAL WEIGHTS APPLIED</div>
+               </div>
+               <div class="metric-card metric-score">
+                 <div class="metric-title">INTELLIGENCE SCORE</div>
+                 <div class="metric-value text-teal" style="font-size: 36px">942</div>
+                 <div class="score-dots">
+                    <span class="dot active"></span>
+                    <span class="dot active"></span>
+                    <span class="dot active"></span>
+                    <span class="dot active"></span>
+                    <span class="dot glowing"></span>
+                 </div>
+               </div>
+            </div>
+
+            <div class="central-grid">
+                <div class="main-column">
+                   <!-- Sync Component -->
+                   <div class="sync-dropzone card-panel" id="dropzone">
+                      <div class="drop-icon">
+                         <i class="fa-solid fa-file-arrow-up"></i>
+                      </div>
+                      <h3>Sync Intelligence Source</h3>
+                      <p>Drag and drop your structured datasets (.csv, .json, .parquet) to initiate neural mapping.</p>
+                      <div class="progress-container">
+                         <div class="progress-labels">
+                            <span id="syncStatus">READY</span>
+                            <span id="syncPercent">0%</span>
+                         </div>
+                         <div class="progress-bar-bg">
+                            <div class="progress-bar-fill glowing-fill" id="syncBar" style="width: 0%"></div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <!-- Active Data Streams -->
+                   <div class="data-streams card-panel">
+                      <div class="panel-header">
+                         <h3>ACTIVE DATA STREAMS</h3>
+                         <a href="#" class="linkable">VIEW FULL REGISTRY</a>
+                      </div>
+                      <table class="streams-table">
+                         <thead>
+                            <tr>
+                               <th>SOURCE ID</th>
+                               <th>ENTROPY</th>
+                               <th>DIMENSIONS</th>
+                               <th>STATUS</th>
+                               <th>ACTION</th>
+                            </tr>
+                         </thead>
+                         <tbody id="streamsTableBody">
+                            <tr>
+                               <td class="text-teal">DS-7729-ALPHA</td>
+                               <td>0.122</td>
+                               <td>42 Cols</td>
+                               <td><span class="status-badge live">LIVE</span></td>
+                               <td><i class="fa-solid fa-ellipsis-vertical" style="cursor: pointer; color: var(--text-muted)"></i></td>
+                            </tr>
+                            <tr>
+                               <td class="text-teal">DS-1104-BETA</td>
+                               <td>0.894</td>
+                               <td>128 Cols</td>
+                               <td><span class="status-badge cached">CACHED</span></td>
+                               <td><i class="fa-solid fa-ellipsis-vertical" style="cursor: pointer; color: var(--text-muted)"></i></td>
+                            </tr>
+                         </tbody>
+                      </table>
+                   </div>
+                   
+                   <div class="predictive-horizon card-panel">
+                       <div class="panel-header glass-header" style="margin-bottom:0">
+                          <div>
+                             <h3 style="color: var(--text-main); font-size: 14px; font-weight: 600;">PREDICTIVE HORIZON</h3>
+                             <div class="sub-label">CONFIDENCE BAND: 98.4% ACCURACY RATING</div>
+                          </div>
+                          <div class="actions">
+                             <i class="fa-solid fa-download"></i>
+                             <i class="fa-solid fa-expand"></i>
+                          </div>
+                       </div>
+                       <div class="chart-mockup">
+                          <div class="chart-bars">
+                             <div class="chart-bar" style="height: 30%"></div>
+                             <div class="chart-bar" style="height: 45%"></div>
+                             <div class="chart-bar" style="height: 60%"></div>
+                             <div class="chart-bar peak glowing-bar" style="height: 90%">
+                                <div class="peak-label">PEAK</div>
+                             </div>
+                             <div class="chart-bar" style="height: 75%"></div>
+                          </div>
+                          <div class="chart-x-axis">
+                             <span>T-12M</span>
+                             <span>T-0</span>
+                             <span class="text-teal">T+12M (PROJECTION)</span>
+                          </div>
+                       </div>
+                    </div>
+                </div>
+                
+                <div class="side-column">
+                   <div class="neural-insights card-panel" style="padding: 20px;">
+                      <div class="panel-header" style="margin-bottom: 16px;">
+                         <h3 style="font-size: 12px; color: var(--text-main);"><i class="fa-solid fa-sparkles text-teal"></i> NEURAL INSIGHTS</h3>
+                      </div>
+                      <div class="insight-box positive">
+                         <div class="insight-label text-teal">POSITIVE DRIVER</div>
+                         <div class="insight-text" style="color: var(--text-muted);">Market volatility is surfacing predictive arbitrage opportunities in Segment A.</div>
+                      </div>
+                      <div class="insight-box negative" style="margin-bottom: 0;">
+                         <div class="insight-label text-red">NEGATIVE DRIVER</div>
+                         <div class="insight-text" style="color: var(--text-muted);">Data decay detected in Source BETA. Accuracy dropped by 4.2% since T-minus 2h.</div>
+                      </div>
+                   </div>
+
+                   <div class="analysis-matrix card-panel">
+                      <div class="panel-header">
+                         <h3 style="color: var(--text-main);">ANALYSIS MATRIX</h3>
+                         <div class="tab-pills">
+                            <span class="pill active">SUMMARY</span>
+                            <span class="pill">DETAILED</span>
+                         </div>
+                      </div>
+                      <div class="matrix-grid">
+                         <div class="matrix-item">
+                            <i class="fa-solid fa-circle-nodes text-purple matrix-icon"></i>
+                            <div class="matrix-label">CLUSTERING</div>
+                            <div class="matrix-value">0.82</div>
+                         </div>
+                         <div class="matrix-item">
+                            <i class="fa-solid fa-diagram-project text-teal matrix-icon"></i>
+                            <div class="matrix-label">CORRELATION</div>
+                            <div class="matrix-value">+0.94</div>
+                         </div>
+                         <div class="matrix-item warn-item" style="background-color: rgba(255, 82, 116, 0.05); border: 1px solid rgba(255, 82, 116, 0.1);">
+                            <i class="fa-solid fa-triangle-exclamation text-red matrix-icon"></i>
+                            <div class="matrix-label text-red">OUTLIERS</div>
+                            <div class="matrix-value text-red">12%</div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- UPLOAD TAB              -->
+        <!-- ======================= -->
+        <div id="tab-upload" class="tab-pane">
+           <div class="tab-layout">
+               <div class="card-panel upload-hero">
+                   <h2><i class="fa-solid fa-database text-teal"></i> Deep Data Registry</h2>
+                   <p class="text-muted" style="margin-bottom: 24px;">Initialize structured data ingestion protocols.</p>
+                   
+                   <!-- Big Dropzone -->
+                   <div class="sync-dropzone full-dropzone card-panel">
+                      <div class="drop-icon large-icon">
+                         <i class="fa-solid fa-cloud-arrow-up"></i>
+                      </div>
+                      <h3>Click or Drag & Drop Datasets Here</h3>
+                      <p>Supports .CSV, .JSON, .PARQUET, and raw SQL dumps</p>
+                      <button class="btn btn-primary" style="margin-top: 16px;">BROWSE FILES</button>
+                   </div>
+                   
+                   <h3 style="margin: 40px 0 16px;">Active Connections</h3>
+                   <div class="data-connections">
+                      <div class="connection-card">
+                         <i class="fa-solid fa-server connection-icon"></i>
+                         <div>
+                            <div style="font-weight: 600;">AWS Redshift Core</div>
+                            <div style="font-size: 11px;" class="text-muted">Syncing daily at 00:00</div>
+                         </div>
+                         <span class="badge positive" style="margin-left: auto;">ACTIVE</span>
+                      </div>
+                      <div class="connection-card">
+                         <i class="fa-solid fa-leaf connection-icon" style="color: #4db8ff"></i>
+                         <div>
+                            <div style="font-weight: 600;">MongoDB Analytics</div>
+                            <div style="font-size: 11px;" class="text-muted">Real-time stream</div>
+                         </div>
+                         <span class="badge positive" style="margin-left: auto;">ACTIVE</span>
+                      </div>
+                   </div>
+               </div>
+           </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- ANALYSIS TAB            -->
+        <!-- ======================= -->
+        <div id="tab-analysis" class="tab-pane">
+            <div class="tab-layout">
+                <div class="analysis-header" style="margin-bottom: 24px;">
+                   <h2 style="font-size: 24px;">Analysis <span class="text-teal">Core</span></h2>
+                   <p class="text-muted">Neural processing of incoming metadata streams via Ether Engine. Real-time dimensional mapping active.</p>
+                </div>
+                
+                <div class="analysis-widgets">
+                   <!-- Widget 1 -->
+                   <div class="card-panel analysis-widget">
+                      <div class="widget-header">
+                         <div>
+                            <div class="widget-title">Data Dimensions</div>
+                            <div class="widget-subtitle">MULTI-AXIS VARIANCE</div>
+                         </div>
+                         <i class="fa-solid fa-network-wired text-primary"></i>
+                      </div>
+                      <div class="widget-body">
+                         <div class="spider-chart-mock">
+                             <div class="spider-web"></div>
+                             <div class="spider-polygon"></div>
+                         </div>
+                      </div>
+                      <div class="widget-footer">
+                         <i class="fa-solid fa-sparkles text-teal"></i> <span>Structural integrity remains at 98.4%. High density detected in Sector 4 lateral nodes.</span>
+                      </div>
+                   </div>
+
+                   <!-- Widget 2 -->
+                   <div class="card-panel analysis-widget">
+                      <div class="widget-header">
+                         <div>
+                            <div class="widget-title">Correlation Analysis</div>
+                            <div class="widget-subtitle">X-Y DENSITY VECTORING</div>
+                         </div>
+                         <i class="fa-solid fa-circle-nodes text-purple"></i>
+                      </div>
+                      <div class="widget-body">
+                         <div class="scatter-chart-mock">
+                             <span class="scatter-dot" style="left:20%; bottom:30%"></span>
+                             <span class="scatter-dot text-teal glowing-dot" style="left:40%; bottom:60%"></span>
+                             <span class="scatter-dot text-purple" style="left:60%; bottom:40%"></span>
+                             <span class="scatter-dot" style="left:75%; bottom:80%"></span>
+                             <span class="scatter-dot" style="left:90%; bottom:65%"></span>
+                         </div>
+                      </div>
+                      <div class="widget-footer">
+                         <i class="fa-solid fa-sparkles text-teal"></i> <span>Strong linear correlation between Latency and Packet Weighting in primary cluster.</span>
+                      </div>
+                   </div>
+
+                   <!-- Widget 3 -->
+                   <div class="card-panel analysis-widget">
+                      <div class="widget-header">
+                         <div>
+                            <div class="widget-title">Entropy Spread</div>
+                            <div class="widget-subtitle">NORMAL DISTRIBUTION</div>
+                         </div>
+                         <i class="fa-solid fa-chart-area text-blue"></i>
+                      </div>
+                      <div class="widget-body">
+                         <div class="bell-chart-mock">
+                             <div class="bell-curve"></div>
+                             <div class="bell-center-line"></div>
+                         </div>
+                      </div>
+                      <div class="widget-footer">
+                         <i class="fa-solid fa-sparkles text-teal"></i> <span>System entropy levels are within nominal ranges. Delta deviation is negligible (<0.03).</span>
+                      </div>
+                   </div>
+                </div>
+
+                <!-- Analysis Bottom Row -->
+                <div class="card-panel" style="margin-top: 24px;">
+                   <div class="panel-header" style="margin-bottom: 20px;">
+                      <h3 style="font-size: 16px; color: var(--text-main);">Live Stream Detail</h3>
+                      <div class="tab-pills">
+                         <div class="search-bar" style="width: 200px; padding: 4px 12px; margin-right: 12px;">
+                            <input type="text" placeholder="Filter: All Nodes...">
+                         </div>
+                         <span class="pill active">Chronological</span>
+                         <span class="pill" style="border: 1px solid var(--border-color)">Export</span>
+                      </div>
+                   </div>
+                   <table class="streams-table">
+                        <thead>
+                           <tr>
+                              <th>STATUS</th>
+                              <th>PROCESS IDENTITY</th>
+                              <th>NETWORK VELOCITY</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           <tr>
+                              <td><span class="status-badge live" style="background:none; border:none"><span class="dot active" style="display:inline-block; width:6px; height:6px; background:var(--accent-green)"></span> LIVE</span></td>
+                              <td><div style="font-weight:600">NEURAL_LOAD_BALANCER</div><div style="font-size:10px; color:var(--text-muted)">ID: x90-ff4</div></td>
+                              <td class="text-teal" style="font-weight:700">1,244 msg/s</td>
+                           </tr>
+                           <tr>
+                              <td><span class="status-badge cached" style="background:none; border:none"><span class="dot" style="display:inline-block; width:6px; height:6px; background:var(--text-blue)"></span> IDLE</span></td>
+                              <td><div style="font-weight:600">CORE_DUMP_ORCHESTRATOR</div><div style="font-size:10px; color:var(--text-muted)">ID: b12-aa8</div></td>
+                              <td style="color:var(--text-muted)">0.02 msg/s</td>
+                           </tr>
+                        </tbody>
+                   </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- FORECAST TAB            -->
+        <!-- ======================= -->
+        <div id="tab-forecast" class="tab-pane">
+            <div class="tab-layout">
+                <div class="analysis-header" style="margin-bottom: 24px;">
+                   <h2 style="font-size: 24px;">Predictive Analysis</h2>
+                   <p class="text-muted">Q3-Q4 Market Projection & Volatility Assessment</p>
+                </div>
+                
+                <div class="forecast-layout">
+                    <div class="forecast-main card-panel">
+                       <div class="forecast-header" style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                          <h3 style="font-size: 18px;">Revenue Growth Forecast</h3>
+                          <div class="tab-pills">
+                             <span class="pill active">6 Months</span>
+                             <span class="pill">1 Year</span>
+                             <span class="pill">Max</span>
+                          </div>
+                       </div>
+                       
+                       <!-- Line Chart Mockup -->
+                       <div class="forecast-chart-area">
+                          <div class="forecast-line">
+                             <div class="forecast-point">
+                                <div class="forecast-tooltip">
+                                   <div class="text-muted" style="font-size:9px">FORECAST POINT</div>
+                                   <div class="text-teal" style="font-size:16px; font-weight:700">$4.2M</div>
+                                   <div style="font-size:10px">+12% Growth</div>
+                                </div>
+                             </div>
+                          </div>
+                          <div class="x-axis-labels">
+                             <span>JUL</span><span>AUG</span><span>SEP</span><span style="opacity:0.5; border-left: 1px dashed var(--border-color); padding-left: 10px;">OCT (NOW)</span><span class="text-teal">NOV</span><span class="text-teal">DEC</span>
+                          </div>
+                       </div>
+                    </div>
+                    
+                    <div class="forecast-sidebar">
+                       <div class="card-panel" style="background: linear-gradient(180deg, rgba(144, 130, 255, 0.1) 0%, var(--card-bg) 100%); border-left: 4px solid var(--secondary)">
+                           <div style="font-size: 10px; color: var(--secondary); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-brain"></i> AI DRIVER ANALYSIS</div>
+                           <p style="font-size: 13px; line-height: 1.6; margin-bottom: 16px;">
+                              Expect a <span class="text-purple" style="font-weight:700">sharp escalation</span> in engagement metrics due to seasonal variance. Supply chain efficiencies are projected to offset raw material inflation by late November.
+                           </p>
+                           <div class="badges">
+                              <span class="badge" style="background: rgba(144,130,255,0.2); color: var(--secondary)">MARKET DRIFT</span>
+                              <span class="badge positive">OPTIMIZED</span>
+                           </div>
+                       </div>
+                       
+                       <div class="card-panel" style="margin-top: 16px;">
+                          <div style="font-size: 10px; color: var(--text-muted); font-weight: 700; margin-bottom: 16px;">SEASONAL ADJUSTMENTS</div>
+                          <div class="toggle-row">
+                             <span>Holiday Surge</span>
+                             <div class="toggle active"><div class="toggle-knob"></div></div>
+                          </div>
+                          <div class="toggle-row">
+                             <span>Economic Cooling</span>
+                             <div class="toggle"><div class="toggle-knob"></div></div>
+                          </div>
+                          <div class="toggle-row">
+                             <span>Competitive Entry</span>
+                             <div class="toggle"><div class="toggle-knob"></div></div>
+                          </div>
+                       </div>
+                    </div>
+                </div>
+
+                <div class="cases-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 24px;">
+                   <div class="card-panel" style="display:flex; align-items:center; gap: 16px; background: rgba(0, 229, 255, 0.05)">
+                      <div class="drop-icon" style="margin:0; width:40px; height:40px; font-size:16px"><i class="fa-solid fa-rocket"></i></div>
+                      <div>
+                         <div class="text-muted" style="font-size: 10px; font-weight:700">BULL CASE</div>
+                         <div style="font-size: 16px; font-weight:700">$5.8M Revenue</div>
+                      </div>
+                   </div>
+                   <div class="card-panel" style="display:flex; align-items:center; gap: 16px;">
+                      <div class="drop-icon" style="margin:0; width:40px; height:40px; font-size:16px; background:var(--border-color); color:var(--text-main)"><i class="fa-solid fa-balance-scale"></i></div>
+                      <div>
+                         <div class="text-muted" style="font-size: 10px; font-weight:700">BASE CASE</div>
+                         <div style="font-size: 16px; font-weight:700">$4.2M Revenue</div>
+                      </div>
+                   </div>
+                   <div class="card-panel" style="display:flex; align-items:center; gap: 16px; background: rgba(255, 82, 116, 0.05)">
+                      <div class="drop-icon" style="margin:0; width:40px; height:40px; font-size:16px; background:rgba(255, 82, 116, 0.1); color: var(--accent-red)"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                      <div>
+                         <div class="text-muted" style="font-size: 10px; font-weight:700">BEAR CASE</div>
+                         <div style="font-size: 16px; font-weight:700">$3.1M Revenue</div>
+                      </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- INSIGHTS TAB            -->
+        <!-- ======================= -->
+        <div id="tab-insights" class="tab-pane">
+            <div class="insights-layout">
+               <div class="slide-header">
+                  <div>
+                     <h2 style="font-size: 20px;">Quarterly Market Sentiment Analysis</h2>
+                     <p class="text-muted" style="font-size: 12px;">Slide 4 of 12 • Final Report</p>
+                  </div>
+                  <div class="actions">
+                     <button class="btn" style="background:var(--card-bg); border: 1px solid var(--border-color); color:var(--text-main)"><i class="fa-solid fa-share-nodes"></i> Share</button>
+                     <button class="btn btn-primary"><i class="fa-solid fa-play"></i> Present Mode</button>
+                  </div>
+               </div>
+               
+               <div class="slide-content card-panel" style="margin-top: 24px; display: flex; gap: 40px; padding: 40px;">
+                  <div class="slide-text-side" style="flex: 1;">
+                     <span class="badge positive" style="margin-bottom: 24px; display:inline-block"><i class="fa-solid fa-sparkles"></i> AI INSIGHT</span>
+                     <h1 style="font-size: 42px; line-height: 1.2; margin-bottom: 30px;">
+                        User retention shows <span class="text-teal">linear growth</span> despite market volatility.
+                     </h1>
+                     <ul style="list-style: none; padding: 0;">
+                        <li style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); line-height: 1.6;">
+                           <span style="color:var(--secondary); font-size: 18px; margin-right: 10px;">•</span>
+                           Monthly active users increased by <strong style="color:var(--text-main)">24.2%</strong> YoY, primarily driven by the new intelligence automation modules.
+                        </li>
+                        <li style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); line-height: 1.6;">
+                           <span style="color:var(--primary); font-size: 18px; margin-right: 10px;">•</span>
+                           Churn rate stabilized at <strong style="color:var(--text-main)">1.4%</strong>, a historic low for the digital asset management sector.
+                        </li>
+                     </ul>
+
+                     <div class="cases-grid" style="display:flex; gap:20px; margin-top: 40px;">
+                        <div class="card-panel" style="padding: 16px; border-left: 4px solid var(--secondary)">
+                           <div class="text-muted" style="font-size:10px; font-weight:700">CONFIDENCE SCORE</div>
+                           <div style="font-size: 24px; font-weight:700">98.4%</div>
+                        </div>
+                        <div class="card-panel" style="padding: 16px; border-left: 4px solid var(--primary)">
+                           <div class="text-muted" style="font-size:10px; font-weight:700">DATA SOURCES</div>
+                           <div style="font-size: 24px; font-weight:700">1.2M+</div>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="slide-visual-side" style="flex: 1; background: var(--bg-color); border-radius: 12px; border: 1px solid var(--border-color); position:relative; overflow:hidden">
+                     <!-- Bar Chart Mock -->
+                     <div class="bar-chart-mock" style="height: 100%; display:flex; align-items:flex-end; justify-content:space-evenly; padding:0 40px 40px 40px; gap: 10px;">
+                        <div class="insight-bar" style="height:30%"></div>
+                        <div class="insight-bar" style="height:45%"></div>
+                        <div class="insight-bar" style="height:35%"></div>
+                        <div class="insight-bar" style="height:60%"></div>
+                        <div class="insight-bar" style="height:50%"></div>
+                        <div class="insight-bar target" style="height:80%"></div>
+                     </div>
+                     <div class="target-popup card-panel">
+                        <span class="dot active"></span> Target Reached
+                     </div>
+                  </div>
+               </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- CHAT TAB                -->
+        <!-- ======================= -->
+        <div id="tab-chat" class="tab-pane">
+            <div class="chat-layout">
+                <div class="chat-sidebar">
+                   <div style="font-size: 10px; font-weight:700; color:var(--text-muted); margin-bottom: 16px;">ARCHIVE THREADING</div>
+                   <div class="thread-item active">
+                      <div class="thread-title">Q4 Forecast Analysis</div>
+                      <div class="thread-meta">2 hours ago • Financial Core</div>
+                   </div>
+                   <div class="thread-item">
+                      <div class="thread-title">Network Anomaly Detection</div>
+                      <div class="thread-meta">Yesterday • Security Node</div>
+                   </div>
+                   <div class="thread-item">
+                      <div class="thread-title">Dataset Integrity Check</div>
+                      <div class="thread-meta">3 days ago • Data Lake</div>
+                   </div>
+                </div>
+                <div class="chat-main">
+                   <div class="chat-header">
+                      <div style="display:flex; align-items:center; gap: 12px;">
+                         <img src="https://ui-avatars.com/api/?name=Ether&background=0A0F1A&color=00e5ff&border=1" style="border-radius:50%; width: 36px; height: 36px; border: 1px solid var(--primary)">
+                         <div>
+                            <div style="font-weight: 600; font-size: 16px;">Ether Co-Pilot</div>
+                            <div style="font-size: 11px; color: var(--accent-green); display:flex; align-items:center; gap:4px"><span class="dot active" style="width:6px; height:6px; background:var(--accent-green)"></span> LIVE/ONLINE</div>
+                         </div>
+                      </div>
+                      <div style="display:flex; gap:16px; color:var(--text-muted); font-size:18px;">
+                         <i class="fa-solid fa-share-nodes"></i>
+                         <i class="fa-solid fa-ellipsis-vertical"></i>
+                      </div>
+                   </div>
+                   
+                   <div class="chat-history">
+                      <!-- User Message -->
+                      <div class="message user-message">
+                         <div class="message-content">
+                            Analyze the latest sales trends for Q4 and flag any potential inventory shortages based on current lead times.
+                         </div>
+                         <div class="message-time">14:02</div>
+                      </div>
+                      
+                      <!-- AI Message -->
+                      <div class="message ai-message">
+                         <div class="avatar-small"><i class="fa-solid fa-sparkles"></i></div>
+                         <div class="message-group">
+                            <div class="message-content ai-text">
+                               I've analyzed the stream from the <span class="text-purple">Logistics Core</span>. Q4 trajectory shows a <span class="text-teal">+12.4% spike</span> in demand for specialized semiconductors.
+                            </div>
+                            
+                            <!-- Embedded Card inside Chat -->
+                            <div class="message-content card-panel chat-embed">
+                               <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; margin-bottom: 8px;">
+                                   <span class="text-muted">INVENTORY HEALTH (CORE-X)</span>
+                                   <span class="text-red">Critical</span>
+                               </div>
+                               <div class="metric-bar" style="background:#2a1b24; margin-bottom:12px"><div class="bar-fill" style="width: 25%; background:var(--accent-red); box-shadow: 0 0 10px var(--accent-red)"></div></div>
+                               <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted);">
+                                  <span>Current: 142 units</span>
+                                  <span>Lead Time: 14 days</span>
+                               </div>
+                            </div>
+
+                            <div class="message-content ai-text">
+                               Current lead times from regional hubs have extended by 4 days due to seasonal congestion. I recommend pre-emptive restocking for the West Coast cluster.
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div class="chat-input-area">
+                      <div class="pill-actions">
+                         <span class="pill">Visualize this trend</span>
+                         <span class="pill">Export as PDF</span>
+                         <span class="pill">Compare with Q3</span>
+                      </div>
+                      <div class="query-box">
+                         <i class="fa-solid fa-paperclip text-muted" style="padding: 0 16px; font-size: 16px;"></i>
+                         <input type="text" placeholder="Query the Ethereal Engine...">
+                         <button class="btn send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+                      </div>
+                      <div style="text-align:center; font-size:9px; color:var(--text-muted); margin-top: 12px; letter-spacing:1px">
+                         PROCESSING THROUGH SECURE NEURAL GATEWAY • 256-BIT ENCRYPTION
+                      </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- SETTINGS TAB            -->
+        <!-- ======================= -->
+        <div id="tab-settings" class="tab-pane">
+           <div class="tab-layout" style="max-width: 800px;">
+               <div class="analysis-header" style="margin-bottom: 24px;">
+                   <h2 style="font-size: 24px;">Settings</h2>
+                   <p class="text-muted">Configure the Ether Engine environment.</p>
+               </div>
+               <div class="card-panel" style="margin-bottom: 24px;">
+                  <h3 style="margin-bottom: 20px; font-size:16px">Profile</h3>
+                  <div class="settings-row">
+                     <label>Display Name</label>
+                     <input type="text" class="input-field" value="Aditya Engineer">
+                  </div>
+                  <div class="settings-row">
+                     <label>Email Access</label>
+                     <input type="text" class="input-field" value="admin@ether-engine.ai">
+                  </div>
+               </div>
+               
+               <div class="card-panel">
+                  <h3 style="margin-bottom: 20px; font-size:16px">System Parameters</h3>
+                  <div class="settings-row" style="align-items:center; display:flex; justify-content:space-between">
+                     <div>
+                        <div style="font-weight:600">Hardware Acceleration</div>
+                        <div style="font-size:11px; color:var(--text-muted)">Use GPU cores for neural mapping tasks.</div>
+                     </div>
+                     <div class="toggle active"><div class="toggle-knob"></div></div>
+                  </div>
+                  <div class="settings-row" style="align-items:center; display:flex; justify-content:space-between">
+                     <div>
+                        <div style="font-weight:600">Strict Anomaly Bounds</div>
+                        <div style="font-size:11px; color:var(--text-muted)">Halt streams if entropy > 0.90.</div>
+                     </div>
+                     <div class="toggle"><div class="toggle-knob"></div></div>
+                  </div>
+               </div>
+           </div>
+        </div>
+
+      </div> <!-- viewport scrollable -->
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

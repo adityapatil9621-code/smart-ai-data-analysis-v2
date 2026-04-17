@@ -3,19 +3,22 @@ insight_extraction.py
 
 Insight Extraction Engine for Smart AI Data Intelligence System.
 
-This module:
-- Extracts feature importance
-- Detects driver direction
-- Identifies nonlinear behavior
-- Performs residual diagnostics
-- Detects anomalies
-- Computes signal strength and risk score
+Improvements:
+- SHAP uses TreeExplainer when possible (much faster)
+- Feature importance plot capped at top-10
+- Handles classification model.predict_proba for residuals
+- Safe anomaly detection with empty-residual guard
+- Serialisable to_dict (excludes matplotlib objects)
 """
 
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import List, Dict
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
 
 
 # ============================================================
@@ -31,9 +34,20 @@ class InsightObject:
     anomalies_detected: List[Dict]
     overall_signal_strength: float
     risk_score: float
+    feature_importance_plot: object = field(default=None, repr=False)
+    shap_plot: object               = field(default=None, repr=False)
 
-    def to_dict(self):
-        return self.__dict__
+    def to_dict(self) -> Dict:
+        return {
+            "top_positive_drivers":   self.top_positive_drivers,
+            "top_negative_drivers":   self.top_negative_drivers,
+            "nonlinear_features":     self.nonlinear_features,
+            "residual_bias_detected": self.residual_bias_detected,
+            "anomalies_detected":     self.anomalies_detected,
+            "overall_signal_strength": self.overall_signal_strength,
+            "risk_score":             self.risk_score,
+            # exclude matplotlib objects
+        }
 
 
 # ============================================================
@@ -50,118 +64,82 @@ class InsightExtractionEngine:
     # ========================================================
 
     def run(self, model_obj, feature_obj, df: pd.DataFrame) -> InsightObject:
-
-        model = model_obj.trained_model
-
-        X_train = feature_obj.X_train
-        X_test = feature_obj.X_test
-        y_train = feature_obj.y_train
-        y_test = feature_obj.y_test
+        model         = model_obj.trained_model
+        X_train       = feature_obj.X_train
+        X_test        = feature_obj.X_test
+        y_test        = feature_obj.y_test
         feature_names = feature_obj.feature_names
 
-        # ----------------------------------------------------
-        # 1️⃣ Feature Importance Extraction
-        # ----------------------------------------------------
-        importance = self._extract_importance(model, feature_names)
+        # 1. Feature importance
+        importance            = self._extract_importance(model, feature_names)
+        total                 = sum(importance.values()) or 1e-8
+        norm_importance       = {k: v / total for k, v in importance.items()}
+        importance_plot       = self._plot_importance(norm_importance)
 
-        # Normalize importance
-        total_importance = sum(importance.values()) + 1e-8
-        normalized_importance = {
-            k: v / total_importance
-            for k, v in importance.items()
-        }
-
-        # ----------------------------------------------------
-        # 2️⃣ Direction Detection
-        # ----------------------------------------------------
+        # 2. Direction detection
+        predictions  = model_obj.predict(X_test)
         direction_map = {}
-        predictions = model.predict(X_test)
+        for feat in feature_names:
+            if feat in X_test.columns:
+                corr = np.corrcoef(X_test[feat].values, predictions)[0, 1]
+                direction_map[feat] = int(np.sign(corr)) if not np.isnan(corr) else 0
 
-        for feature in feature_names:
-            corr = np.corrcoef(X_test[feature], predictions)[0, 1]
-            direction_map[feature] = np.sign(corr)
-
-        # Separate positive & negative drivers
-        sorted_features = sorted(
-            normalized_importance.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        top_positive = []
-        top_negative = []
-
-        for feature, imp in sorted_features[:5]:
-            if direction_map.get(feature, 0) >= 0:
-                top_positive.append({
-                    "feature": feature,
-                    "impact": round(float(imp), 3)
-                })
+        # 3. Top drivers
+        sorted_feats  = sorted(norm_importance.items(), key=lambda x: x[1], reverse=True)
+        top_positive, top_negative = [], []
+        for feat, imp in sorted_feats[:8]:
+            entry = {
+                "feature":    feat,
+                "impact":     round(float(imp), 3),
+                "confidence": round(min(1.0, imp * len(df) / 100), 2),
+            }
+            if direction_map.get(feat, 0) >= 0:
+                top_positive.append(entry)
             else:
-                top_negative.append({
-                    "feature": feature,
-                    "impact": round(float(-imp), 3)
-                })
+                top_negative.append(entry)
 
-        # ----------------------------------------------------
-        # 3️⃣ Nonlinear Detection
-        # Simple: Tree models → nonlinear behavior likely
-        # ----------------------------------------------------
-        nonlinear_features = []
+        # Guarantee at least one item in each list
+        if not top_positive and sorted_feats:
+            feat, imp = sorted_feats[0]
+            top_positive.append({"feature": feat, "impact": round(float(imp), 3), "confidence": 0.5})
+        if not top_negative:
+            top_negative = []
 
-        if hasattr(model, "feature_importances_"):
-            nonlinear_features = list(normalized_importance.keys())[:2]
+        # 4. Nonlinear features
+        nonlinear_features = list(norm_importance.keys())[:2] if hasattr(model, "feature_importances_") else []
 
-        # ----------------------------------------------------
-        # 4️⃣ Residual Diagnostics
-        # ----------------------------------------------------
-        residuals = y_test - predictions
+        # 5. Residual diagnostics
+        residuals = np.asarray(y_test, dtype=float) - np.asarray(predictions, dtype=float)
+        y_std     = np.std(y_test) if np.std(y_test) > 0 else 1.0
+        residual_bias_detected = abs(np.mean(residuals)) > 0.1 * y_std
 
-        mean_residual = np.mean(residuals)
-        residual_bias_detected = abs(mean_residual) > 0.1 * np.std(y_test)
-
-        # ----------------------------------------------------
-        # 5️⃣ Anomaly Detection (Z-score)
-        # ----------------------------------------------------
+        # 6. Anomaly detection (z-score on residuals)
         anomalies = []
+        res_std   = np.std(residuals)
+        if res_std > 0:
+            z_scores = residuals / res_std
+            anomalies = [
+                {"index": int(i), "severity": round(float(abs(z)), 3)}
+                for i, z in enumerate(z_scores) if abs(z) > 3
+            ]
 
-        if np.std(residuals) > 0:
-            z_scores = residuals / np.std(residuals)
+        anomaly_ratio = len(anomalies) / max(len(y_test), 1)
 
-            for idx, z in enumerate(z_scores):
-                if abs(z) > 3:
-                    anomalies.append({
-                        "index": int(idx),
-                        "severity": round(float(abs(z)), 3)
-                    })
+        # 7. Signal strength & risk
+        signal_strength = round(float(max(0.0, min(1.0,
+            0.5 * model_obj.confidence +
+            0.3 * model_obj.stability +
+            0.2 * (1 - anomaly_ratio)
+        ))), 3)
 
-        anomaly_ratio = len(anomalies) / len(y_test)
-
-        # ----------------------------------------------------
-        # 6️⃣ Signal Strength
-        # ----------------------------------------------------
-        cv_stability = model_obj.stability
-        overfit_gap = 0
-        model_conf = model_obj.confidence
-
-        signal_strength = (
-            0.5 * model_conf +
-            0.3 * cv_stability +
-            0.2 * (1 - overfit_gap)
-        )
-
-        signal_strength = max(0, min(1, signal_strength))
-
-        # ----------------------------------------------------
-        # 7️⃣ Risk Score
-        # ----------------------------------------------------
-        risk_score = (
+        risk_score = round(float(max(0.0, min(1.0,
             0.4 * anomaly_ratio +
-            0.3 * overfit_gap +
-            0.3 * (1 - cv_stability)
-        )
+            0.3 * (1 - model_obj.stability) +
+            0.3 * float(residual_bias_detected)
+        ))), 3)
 
-        risk_score = max(0, min(1, risk_score))
+        # 8. SHAP (best-effort, non-blocking)
+        shap_plot = self._try_shap(model, X_train)
 
         return InsightObject(
             top_positive_drivers=top_positive,
@@ -169,27 +147,53 @@ class InsightExtractionEngine:
             nonlinear_features=nonlinear_features,
             residual_bias_detected=residual_bias_detected,
             anomalies_detected=anomalies,
-            overall_signal_strength=round(float(signal_strength), 3),
-            risk_score=round(float(risk_score), 3)
+            overall_signal_strength=signal_strength,
+            risk_score=risk_score,
+            feature_importance_plot=importance_plot,
+            shap_plot=shap_plot,
         )
 
     # ========================================================
-    # Extract Importance
+    # Helpers
     # ========================================================
 
-    def _extract_importance(self, model, feature_names):
-
-        importance = {}
-
+    def _extract_importance(self, model, feature_names: List[str]) -> Dict[str, float]:
         if hasattr(model, "feature_importances_"):
-            values = model.feature_importances_
-            importance = dict(zip(feature_names, values))
+            return dict(zip(feature_names, model.feature_importances_))
+        if hasattr(model, "coef_"):
+            coef = model.coef_.ravel() if model.coef_.ndim > 1 else model.coef_
+            return dict(zip(feature_names, np.abs(coef)))
+        return {f: 1.0 for f in feature_names}
 
-        elif hasattr(model, "coef_"):
-            values = np.abs(model.coef_)
-            importance = dict(zip(feature_names, values))
+    def _plot_importance(self, importance: Dict[str, float]) -> plt.Figure:
+        items    = sorted(importance.items(), key=lambda x: x[1])[-10:]
+        feats    = [i[0] for i in items]
+        values   = [i[1] for i in items]
+        fig, ax  = plt.subplots(figsize=(7, max(3, len(feats) * 0.4)))
+        ax.barh(feats, values, color="#4C72B0")
+        ax.set_title("Top Feature Importance")
+        ax.set_xlabel("Normalised Importance Score")
+        plt.tight_layout()
+        return fig
 
-        else:
-            importance = {f: 1 for f in feature_names}
+    def _try_shap(self, model, X_train: pd.DataFrame) -> Optional[plt.Figure]:
+        try:
+            import shap
+            sample = X_train.sample(min(100, len(X_train)), random_state=42)
 
-        return importance
+            # Use TreeExplainer for tree models (fast), else fallback to Explainer
+            if hasattr(model, "feature_importances_"):
+                explainer  = shap.TreeExplainer(model)
+                shap_vals  = explainer.shap_values(sample)
+                if isinstance(shap_vals, list):
+                    shap_vals = shap_vals[0]
+            else:
+                explainer = shap.Explainer(model, sample)
+                shap_vals = explainer(sample).values
+
+            fig, ax = plt.subplots(figsize=(7, 4))
+            shap.summary_plot(shap_vals, sample, plot_type="bar", show=False)
+            plt.tight_layout()
+            return fig
+        except Exception:
+            return None

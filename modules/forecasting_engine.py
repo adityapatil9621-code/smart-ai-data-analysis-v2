@@ -3,21 +3,19 @@ forecasting_engine.py
 
 Tree-Based Lag Forecasting Engine for Smart AI Data Intelligence System.
 
-This module:
-- Creates lag features
-- Trains Gradient Boosting model
-- Performs recursive forecasting
-- Generates confidence intervals (bootstrap)
-- Detects trend direction
-- Computes volatility & forecast confidence
+Improvements:
+- Configurable lags & smoothing window
+- Drift-corrected trend detection (normalized slope)
+- Bootstrap skips failed fits gracefully
+- Returns target_column name so UI can label correctly
+- to_dict() always serialisable (no numpy types)
 """
 
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.metrics import r2_score
 
 
 # ============================================================
@@ -32,9 +30,21 @@ class ForecastObject:
     trend_direction: str
     volatility_score: float
     forecast_confidence: float
+    target_column: str = ""
 
-    def to_dict(self):
-        return self.__dict__
+    def to_dict(self) -> Dict:
+        return {
+            "forecast_horizon":  self.forecast_horizon,
+            "forecast_values":   [round(float(v), 4) for v in self.forecast_values],
+            "confidence_band": {
+                "lower": [round(float(v), 4) for v in self.confidence_band["lower"]],
+                "upper": [round(float(v), 4) for v in self.confidence_band["upper"]],
+            },
+            "trend_direction":    self.trend_direction,
+            "volatility_score":   round(float(self.volatility_score), 4),
+            "forecast_confidence": round(float(self.forecast_confidence), 4),
+            "target_column":      self.target_column,
+        }
 
 
 # ============================================================
@@ -44,182 +54,124 @@ class ForecastObject:
 class ForecastEngine:
 
     def __init__(self, config: dict = None):
-        self.config = config or {}
-        self.forecast_horizon = self.config.get("forecast_horizon", 6)
+        self.config               = config or {}
+        self.forecast_horizon     = self.config.get("forecast_horizon", 6)
         self.bootstrap_iterations = self.config.get("bootstrap_iterations", 20)
-        self.random_state = self.config.get("random_state", 42)
-        self.lags = [1, 2, 3, 6]
+        self.random_state         = self.config.get("random_state", 42)
+        self.lags                 = self.config.get("lags", [1, 2, 3, 6])
+        self.smoothing_window     = self.config.get("smoothing_window", 3)
 
     # ========================================================
     # MAIN RUN METHOD
     # ========================================================
 
-    def run(self, df: pd.DataFrame, understanding_obj) -> ForecastObject:
+    def run(self, df: pd.DataFrame, understanding_obj=None) -> Optional[ForecastObject]:
+        try:
+            numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+            if not numeric_cols:
+                return None
 
-        target = understanding_obj.target_column
-        time_col = understanding_obj.time_column
+            # Sort by time if available
+            if understanding_obj and understanding_obj.time_column:
+                df = df.sort_values(by=understanding_obj.time_column)
 
-        df = df.sort_values(by=time_col).reset_index(drop=True)
+            target_col = (
+                understanding_obj.target_column
+                if understanding_obj and understanding_obj.target_column
+                else numeric_cols[-1]
+            )
 
-        series = df[target].values
+            raw_series = df[target_col].dropna().reset_index(drop=True).values
+            if len(raw_series) < max(self.lags) + 10:
+                return None
 
-        if len(series) < 20:
-            raise ValueError("Not enough data for forecasting.")
+            # Apply rolling smoothing
+            series = pd.Series(raw_series).rolling(window=self.smoothing_window, min_periods=1).mean().values
 
-        # ----------------------------------------------------
-        # 1️⃣ Create Lag Features
-        # ----------------------------------------------------
-        lag_df = self._create_lag_features(series)
+            # Train model & forecast
+            lag_df  = self._create_lag_features(series)
+            X, y    = lag_df.drop(columns=["target"]), lag_df["target"]
+            model   = GradientBoostingRegressor(random_state=self.random_state)
+            model.fit(X, y)
 
-        X = lag_df.drop(columns=["target"])
-        y = lag_df["target"]
+            forecast_values = self._recursive_forecast(model, series, self.forecast_horizon)
+            lower, upper    = self._bootstrap_confidence(series, self.forecast_horizon)
 
-        split_index = int(len(X) * 0.8)
+            # Trend direction (normalized slope)
+            slope            = np.polyfit(range(len(series)), series, 1)[0]
+            norm_slope       = slope / (np.mean(np.abs(series)) + 1e-8)
+            if norm_slope > 0.01:
+                trend = "Upward"
+            elif norm_slope < -0.01:
+                trend = "Downward"
+            else:
+                trend = "Stable"
 
-        X_train = X.iloc[:split_index]
-        X_test = X.iloc[split_index:]
-        y_train = y.iloc[:split_index]
-        y_test = y.iloc[split_index:]
+            volatility         = float(np.std(np.diff(series)) / (np.mean(np.abs(series)) + 1e-8))
+            forecast_confidence = float(max(0.2, min(0.95, 1.0 - volatility)))
 
-        # ----------------------------------------------------
-        # 2️⃣ Train Model
-        # ----------------------------------------------------
-        model = GradientBoostingRegressor(
-            random_state=self.random_state
-        )
+            return ForecastObject(
+                forecast_horizon=self.forecast_horizon,
+                forecast_values=forecast_values,
+                confidence_band={"lower": lower.tolist(), "upper": upper.tolist()},
+                trend_direction=trend,
+                volatility_score=volatility,
+                forecast_confidence=forecast_confidence,
+                target_column=target_col,
+            )
 
-        model.fit(X_train, y_train)
-
-        y_pred_test = model.predict(X_test)
-
-        model_r2 = r2_score(y_test, y_pred_test)
-
-        # ----------------------------------------------------
-        # 3️⃣ Recursive Forecast
-        # ----------------------------------------------------
-        forecast_values = self._recursive_forecast(
-            model,
-            series,
-            self.forecast_horizon
-        )
-
-        # ----------------------------------------------------
-        # 4️⃣ Bootstrap Confidence Band
-        # ----------------------------------------------------
-        lower_band, upper_band = self._bootstrap_confidence(
-            series,
-            self.forecast_horizon
-        )
-
-        # ----------------------------------------------------
-        # 5️⃣ Trend Detection
-        # ----------------------------------------------------
-        slope = np.polyfit(
-            range(len(forecast_values)),
-            forecast_values,
-            1
-        )[0]
-
-        if slope > 0:
-            trend = "Upward"
-        elif slope < 0:
-            trend = "Downward"
-        else:
-            trend = "Stable"
-
-        # ----------------------------------------------------
-        # 6️⃣ Volatility Score
-        # ----------------------------------------------------
-        volatility = np.std(forecast_values) / (np.mean(forecast_values) + 1e-8)
-        volatility = max(0, min(1, volatility))
-
-        # ----------------------------------------------------
-        # 7️⃣ Forecast Confidence
-        # ----------------------------------------------------
-        forecast_confidence = (
-            0.6 * model_r2 +
-            0.2 * (1 - volatility) +
-            0.2 * (1 - abs(slope) / (abs(np.mean(series)) + 1e-8))
-        )
-
-        forecast_confidence = max(0, min(1, forecast_confidence))
-
-        return ForecastObject(
-            forecast_horizon=self.forecast_horizon,
-            forecast_values=[round(float(v), 3) for v in forecast_values],
-            confidence_band={
-                "lower": [round(float(v), 3) for v in lower_band],
-                "upper": [round(float(v), 3) for v in upper_band]
-            },
-            trend_direction=trend,
-            volatility_score=round(float(volatility), 3),
-            forecast_confidence=round(float(forecast_confidence), 3)
-        )
+        except Exception as e:
+            print(f"[ForecastEngine] Warning: {e}")
+            return None
 
     # ========================================================
     # Lag Feature Creation
     # ========================================================
 
-    def _create_lag_features(self, series):
-
+    def _create_lag_features(self, series: np.ndarray) -> pd.DataFrame:
         df = pd.DataFrame({"target": series})
-
         for lag in self.lags:
-
             df[f"lag_{lag}"] = df["target"].shift(lag)
-
         df.dropna(inplace=True)
-
         return df
 
     # ========================================================
     # Recursive Forecast
     # ========================================================
 
-    def _recursive_forecast(self, model, series, horizon):
-
-        history = list(series[-max(self.lags):])
-
+    def _recursive_forecast(self, model, series: np.ndarray, horizon: int) -> List[float]:
+        history  = list(series[-max(self.lags):])
         forecast = []
-
         for _ in range(horizon):
             features = pd.DataFrame(
                 [[history[-lag] for lag in self.lags]],
-                columns=[f"lag_{lag}" for lag in self.lags]
+                columns=[f"lag_{lag}" for lag in self.lags],
             )
-
-            prediction = model.predict(features)[0]
-
-            forecast.append(prediction)
-            history.append(prediction)
-
+            pred = float(model.predict(features)[0])
+            forecast.append(pred)
+            history.append(pred)
         return forecast
 
     # ========================================================
-    # Bootstrap Confidence
+    # Bootstrap Confidence Band
     # ========================================================
 
-    def _bootstrap_confidence(self, series, horizon):
-
+    def _bootstrap_confidence(self, series: np.ndarray, horizon: int):
         forecasts = []
-
         for _ in range(self.bootstrap_iterations):
+            try:
+                sample  = np.random.choice(series, size=len(series), replace=True)
+                lag_df  = self._create_lag_features(sample)
+                Xb, yb  = lag_df.drop(columns=["target"]), lag_df["target"]
+                m       = GradientBoostingRegressor()
+                m.fit(Xb, yb)
+                forecasts.append(self._recursive_forecast(m, sample, horizon))
+            except Exception:
+                continue
 
-            sample = np.random.choice(series, size=len(series), replace=True)
-            lag_df = self._create_lag_features(sample)
+        if not forecasts:
+            zeros = np.zeros(horizon)
+            return zeros, zeros
 
-            X = lag_df.drop(columns=["target"])
-            y = lag_df["target"]
-
-            model = GradientBoostingRegressor()
-            model.fit(X, y)
-
-            forecast = self._recursive_forecast(model, sample, horizon)
-            forecasts.append(forecast)
-
-        forecasts = np.array(forecasts)
-
-        lower = np.percentile(forecasts, 5, axis=0)
-        upper = np.percentile(forecasts, 95, axis=0)
-
-        return lower, upper
+        arr   = np.array(forecasts)
+        return np.percentile(arr, 5, axis=0), np.percentile(arr, 95, axis=0)

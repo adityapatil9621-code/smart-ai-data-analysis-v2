@@ -1,17 +1,134 @@
 """
 chat_engine.py
 
-Controlled Chat Engine for Smart AI Data Intelligence System.
+Chat Engine for Smart AI Data Intelligence System.
 
-This module:
-- Detects user intent
-- Extracts structured intelligence from SystemMemory
-- Constructs safe analytical response
-- Sends structured response to LLM for rewriting
+Improvements:
+- Timeout configurable via env / config
+- Strips <think>…</think> blocks robustly
+- generate_dynamic_questions returns deduplicated list
+- build_context truncates large driver lists
+- Graceful fallback when Ollama is unreachable
 """
 
-from typing import Dict
-import requests  # Use your OpenAI API or LLM provider
+import ast
+import os
+from typing import Dict, List
+
+import requests
+
+
+OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://192.168.1.102:11434/api/generate")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
+TIMEOUT      = int(os.getenv("OLLAMA_TIMEOUT", "60"))
+
+
+# ============================================================
+# Low-level LLM call
+# ============================================================
+
+def ollama_generate(prompt: str, model: str = OLLAMA_MODEL) -> str:
+    try:
+        resp = requests.post(
+            OLLAMA_URL,
+            json={
+                "model":  model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.7, "top_p": 0.9},
+            },
+            timeout=TIMEOUT,
+        )
+        resp.raise_for_status()
+        output = resp.json().get("response", "")
+
+        # Strip chain-of-thought blocks
+        if "</think>" in output:
+            output = output.split("</think>")[-1].strip()
+
+        return output.strip()
+
+    except requests.exceptions.ConnectionError:
+        return "⚠️ Could not reach the AI model. Please ensure Ollama is running."
+    except requests.exceptions.Timeout:
+        return "⚠️ AI model timed out. Try again or reduce the complexity of your question."
+    except Exception as e:
+        return f"⚠️ Error: {e}"
+
+
+# ============================================================
+# Context Builder
+# ============================================================
+
+def build_context(memory: Dict) -> str:
+    insight   = memory.get("insight_intelligence", {})
+    drivers   = insight.get("top_positive_drivers", [])[:3]
+    forecast  = memory.get("forecast_intelligence")
+    meta      = memory.get("metadata", {})
+    model_info = memory.get("model_intelligence", {})
+
+    driver_text   = ", ".join(d["feature"] for d in drivers) if drivers else "N/A"
+    forecast_text = (
+        f"Trend={forecast.get('trend_direction', 'N/A')}, "
+        f"Confidence={forecast.get('forecast_confidence', 'N/A')}"
+        if forecast else "Not available (no time-series detected)"
+    )
+
+    return (
+        f"Dataset: {meta.get('rows', '?')} rows × {meta.get('columns', '?')} columns | "
+        f"Quality: {meta.get('quality_score', '?')} | Domain: {meta.get('domain', 'general')}\n"
+        f"Model: {model_info.get('selected_model', 'N/A')} | "
+        f"Confidence: {model_info.get('confidence', 'N/A')}\n"
+        f"Top Drivers: {driver_text}\n"
+        f"Risk Score: {insight.get('risk_score', 'N/A')}\n"
+        f"Forecast: {forecast_text}"
+    )
+
+
+# ============================================================
+# Dynamic Question Generator
+# ============================================================
+
+def generate_dynamic_questions(memory: Dict) -> List[str]:
+    context = build_context(memory)
+    prompt  = f"""You are a business analyst.
+
+Context:
+{context}
+
+Generate 6 short, business-friendly questions a user might ask about this dataset.
+
+Rules:
+- Plain English, no jargon
+- Each question on its own line
+- Return ONLY a valid Python list of strings, nothing else
+
+Example:
+["What are the key drivers?", "Is the trend going up?"]
+"""
+    output = ollama_generate(prompt)
+    try:
+        questions = ast.literal_eval(output)
+        if isinstance(questions, list):
+            # Deduplicate while preserving order
+            seen, unique = set(), []
+            for q in questions:
+                if q not in seen:
+                    seen.add(q)
+                    unique.append(q)
+            return unique
+    except Exception:
+        pass
+
+    # Fallback questions
+    return [
+        "What are the key drivers of this dataset?",
+        "Is the model reliable?",
+        "What risks exist in the data?",
+        "What is the current trend?",
+        "Which features should I focus on?",
+        "Are there any anomalies I should worry about?",
+    ]
 
 
 # ============================================================
@@ -20,175 +137,19 @@ import requests  # Use your OpenAI API or LLM provider
 
 class ChatEngine:
 
-    def __init__(self):
-        pass
+    def respond(self, user_query: str, memory: Dict) -> str:
+        context = build_context(memory)
+        prompt  = f"""You are a professional business data analyst.
 
-    # ========================================================
-    # MAIN CHAT METHOD
-    # ========================================================
+Context:
+{context}
 
-    def respond(self, user_query: str, system_memory: Dict) -> str:
+User Question:
+{user_query}
 
-        intent = self._detect_intent(user_query)
-
-        structured_response = self._build_structured_response(
-            intent,
-            system_memory
-        )
-
-        final_response = self._rewrite_with_llm(structured_response)
-
-        return final_response
-
-    # ========================================================
-    # Intent Detection (Deterministic)
-    # ========================================================
-
-    def _detect_intent(self, query: str) -> str:
-
-        query = query.lower()
-
-        if "forecast" in query or "future" in query or "trend" in query:
-            return "forecast"
-
-        if "driver" in query or "cause" in query or "influence" in query:
-            return "drivers"
-
-        if "risk" in query or "problem" in query:
-            return "risk"
-
-        if "anomaly" in query or "outlier" in query:
-            return "anomalies"
-
-        if "confidence" in query:
-            return "confidence"
-
-        if "recommend" in query or "suggest" in query:
-            return "recommendation"
-
-        return "summary"
-
-    # ========================================================
-    # Structured Response Builder
-    # ========================================================
-
-    def _build_structured_response(self, intent: str, memory: Dict) -> str:
-
-        metadata = memory["metadata"]
-        model_info = memory["model_intelligence"]
-        insight = memory["insight_intelligence"]
-        forecast = memory.get("forecast_intelligence")
-        score = memory["intelligence_score"]
-
-        response = ""
-
-        # ----------------------------------------------------
-        # SUMMARY
-        # ----------------------------------------------------
-        if intent == "summary":
-
-            response = (
-                f"The dataset contains {metadata['rows']} records "
-                f"with a quality score of {metadata['quality_score']}. "
-                f"The selected model is {model_info['selected_model']} "
-                f"with confidence level {score['confidence_level']}. "
-                f"Overall intelligence grade: {score['grade']}."
-            )
-
-        # ----------------------------------------------------
-        # DRIVERS
-        # ----------------------------------------------------
-        elif intent == "drivers":
-
-            response = (
-                f"Top positive drivers: {insight['top_positive_drivers']}. "
-                f"Top negative drivers: {insight['top_negative_drivers']}."
-            )
-
-        # ----------------------------------------------------
-        # RISK
-        # ----------------------------------------------------
-        elif intent == "risk":
-
-            response = (
-                f"Risk score is {insight['risk_score']}. "
-                f"Residual bias detected: {insight['residual_bias_detected']}."
-            )
-
-        # ----------------------------------------------------
-        # FORECAST
-        # ----------------------------------------------------
-        elif intent == "forecast" and forecast:
-
-            response = (
-                f"Forecast trend direction: {forecast['trend_direction']}. "
-                f"Volatility score: {forecast['volatility_score']}. "
-                f"Forecast confidence: {forecast['forecast_confidence']}."
-            )
-
-        # ----------------------------------------------------
-        # ANOMALIES
-        # ----------------------------------------------------
-        elif intent == "anomalies":
-
-            response = (
-                f"Anomalies detected: {len(insight['anomalies_detected'])} cases."
-            )
-
-        # ----------------------------------------------------
-        # RECOMMENDATION
-        # ----------------------------------------------------
-        elif intent == "recommendation":
-
-            response = (
-                f"Based on analytical insights, "
-                f"priority level is {score['confidence_level']}. "
-                f"Consider reviewing key drivers and managing identified risks."
-            )
-
-        # ----------------------------------------------------
-        # CONFIDENCE
-        # ----------------------------------------------------
-        elif intent == "confidence":
-
-            response = (
-                f"Overall intelligence score is {score['score']} "
-                f"with grade {score['grade']} "
-                f"and confidence level {score['confidence_level']}."
-            )
-
-        else:
-            response = "Insufficient data to provide requested insight."
-
-        return response
-
-    # ========================================================
-    # LLM Rewrite Layer (Controlled)
-    # ========================================================
-
-    def _rewrite_with_llm(self, structured_text: str) -> str:
-
-        prompt = (
-            "Rewrite the following structured analytical summary into "
-            "clear, professional, natural language. "
-            "Do not add new data. Do not invent statistics. "
-            "Keep a balanced decision-support tone.\n\n"
-            f"{structured_text}"
-        )
-
-        try:
-            response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": "llama3",
-                    "prompt": prompt,
-                    "stream": False
-                }
-            )
-
-            response.raise_for_status()
-
-            return response.json()["response"]
-
-        except Exception as e:
-            return f"LLM Error: {str(e)}"
+Instructions:
+- Answer clearly and concisely in plain business language
+- Do not expose internal model details or technical jargon unless asked
+- Keep the answer to 2–4 sentences
+"""
+        return ollama_generate(prompt)
